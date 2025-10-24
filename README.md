@@ -89,6 +89,7 @@ This application allows tracking of items, their variants, pricing, and stock le
 - Git
 
 ### Steps
+```bash
 # Clone the repository
 git clone https://github.com/kwirawibawa/warehouse.git
 cd warehouse
@@ -98,14 +99,16 @@ mvn clean install
 
 # Run the application
 mvn spring-boot:run
-
+```
 
 ### Access Points
 - API Base URL → `http://localhost:8080`
 - H2 Console → `http://localhost:8080/h2-console`  
+  ```
   JDBC URL: jdbc:h2:mem:warehouse
   Username: sa
   Password:
+  ```
 
 ---
 
@@ -163,6 +166,7 @@ mvn spring-boot:run
 ## 📬 Example Requests
 
 ### Create a new item with variants
+```bash
 curl -X POST http://localhost:8080/item/create -H "Content-Type: application/json" -d '{
    "name": "T-Shirt",
    "description": "Cotton T-shirt",
@@ -171,9 +175,10 @@ curl -X POST http://localhost:8080/item/create -H "Content-Type: application/jso
       {"sku": "TSHIRT-BLUE-L", "name": "Blue - L", "price": 115000, "stock": 5}
    ]
 }'
+```
 
 ### Create a variant for an existing item
-
+```bash
 curl -X POST http://localhost:8080/variant/create -H "Content-Type: application/json" -d '{
    "itemId": 1,
    "sku": "HOODIE-BLACK-XL",
@@ -181,13 +186,15 @@ curl -X POST http://localhost:8080/variant/create -H "Content-Type: application/
    "price": 260000,
    "stock": 10
 }'
-
+```
 
 ### Get all stock
+```bash
 curl -X GET http://localhost:8080/stock/getAll
-
+```
 
 ### Example Success Response
+```json
 {
   "code": "200",
   "message": "Item created successfully",
@@ -199,6 +206,7 @@ curl -X GET http://localhost:8080/stock/getAll
     ]
   }
 }
+```
 
 ---
 
@@ -207,10 +215,12 @@ curl -X GET http://localhost:8080/stock/getAll
 All errors are returned in a consistent JSON structure.
 
 ### Example Error Response
+```json
 {
   "code": "409",
   "message": "Variant with SKU 'TSHIRT-RED-M' already exists"
 }
+```
 
 ### Common Error Codes
 | HTTP Status  | Code                  | Description                         |
@@ -256,14 +266,15 @@ All errors are returned in a consistent JSON structure.
 ---
 
 ## 🧪 Sample Data
+```sql
 INSERT INTO ITEM (name, description)
-VALUES
-    ('Hoodie', 'Comfy warm hoodie');
+VALUES ('Hoodie', 'Comfy warm hoodie');
 
 INSERT INTO VARIANT (sku, name, price, stock, item_id, version)
 VALUES
-    ('HOODIE-BLACK-L','Black - L', 250000, 7,  1, 0),
-    ('HOODIE-GRAY-M', 'Gray - M',  245000, 12, 1, 0);
+('HOODIE-BLACK-L','Black - L', 250000, 7,  1, 0),
+('HOODIE-GRAY-M', 'Gray - M',  245000, 12, 1, 0);
+```
 
 
 ---
