@@ -9,7 +9,6 @@ import java.util.List;
 
 @Data
 public class ItemRequest {
-    @NotNull
     private Long id;
 
     @NotBlank
@@ -18,6 +17,5 @@ public class ItemRequest {
     @NotBlank
     private String description;
 
-    @NotEmpty(message = "Variants list cannot be empty")
     private List<VariantRequest> variants;
 }

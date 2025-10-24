@@ -2,9 +2,12 @@ package com.assesment.warehouse.service;
 
 import com.assesment.warehouse.model.request.SellBySkuRequest;
 import com.assesment.warehouse.model.response.SellResultResponse;
+import com.assesment.warehouse.model.response.StockResponse;
+import com.assesment.warehouse.util.CommonConstants;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.assesment.warehouse.exception.NotEnoughStockException;
@@ -16,6 +19,7 @@ import com.assesment.warehouse.model.request.SellRequest;
 import com.assesment.warehouse.model.response.VariantResponse;
 import com.assesment.warehouse.repository.ItemRepository;
 import com.assesment.warehouse.repository.VariantRepository;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -34,9 +38,22 @@ public class VariantServiceImpl implements VariantService {
 
     @Transactional
     @Override
-    public VariantResponse createVariant(Long itemId, VariantRequest request) {
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new EntityNotFoundException("Item not found with ID: " + itemId));
+    public VariantResponse createVariant(VariantRequest request) {
+        Item item = itemRepository.findById(request.getItemId())
+                .orElseThrow(() -> new EntityNotFoundException("Item not found with ID: " + request.getItemId()));
+
+        if (variantRepository.existsBySkuIgnoreCase(request.getSku())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Variant with SKU '" + request.getSku() + "' already exists");
+        }
+
+        if (request.getPrice() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price must be greater than zero");
+        }
+
+        if (request.getStock() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Stock cannot be negative");
+        }
 
         Variant variant = Variant.builder()
                 .sku(request.getSku())
@@ -52,13 +69,18 @@ public class VariantServiceImpl implements VariantService {
 
     @Override
     public List<VariantResponse> getAllVariants() {
-        return variantRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+        List<VariantResponse> list = new ArrayList<>();
+        for (Variant variant : variantRepository.findAll()) {
+            VariantResponse response = toResponse(variant);
+            list.add(response);
+        }
+        return list;
     }
 
     @Override
     public VariantResponse getVariantById(Long id) {
         Variant variant = variantRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Variant not found with ID: " + id));
+                .orElseThrow(() -> new EntityNotFoundException(CommonConstants.VARIANT_NOT_FOUND_ID + id));
         return toResponse(variant);
     }
 
@@ -66,7 +88,7 @@ public class VariantServiceImpl implements VariantService {
     @Override
     public VariantResponse updateVariant(Long id, VariantRequest request) {
         Variant variant = variantRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Variant not found with ID: " + id));
+                .orElseThrow(() -> new EntityNotFoundException(CommonConstants.VARIANT_NOT_FOUND_ID + id));
 
         variant.setSku(request.getSku());
         variant.setName(request.getName());
@@ -81,7 +103,7 @@ public class VariantServiceImpl implements VariantService {
     @Override
     public void deleteVariant(Long id) {
         Variant variant = variantRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Variant not found with ID: " + id));
+                .orElseThrow(() -> new EntityNotFoundException(CommonConstants.VARIANT_NOT_FOUND_ID + id));
         variantRepository.delete(variant);
     }
 
@@ -113,7 +135,7 @@ public class VariantServiceImpl implements VariantService {
         int qty = request.getQuantity();
 
         Variant variant = variantRepository.findBySku(sku)
-                .orElseThrow(() -> new EntityNotFoundException("Variant not found with SKU: " + sku));
+                .orElseThrow(() -> new EntityNotFoundException(CommonConstants.VARIANT_NOT_FOUND + sku));
 
         log.info("Attempting to reduce stock for sku={} qty={} currentStock={}", sku, qty, variant.getStock());
 
@@ -130,14 +152,14 @@ public class VariantServiceImpl implements VariantService {
     @Override
     public VariantResponse getStockInfoById(Long id) {
         Variant variant = variantRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Variant not found: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Variant not found with ID : " + id));
         return toResponse(variant);
     }
 
     @Override
     public VariantResponse getStockInfoBySku(String sku) {
         Variant variant = variantRepository.findBySku(sku)
-                .orElseThrow(() -> new EntityNotFoundException("Variant not found: " + sku));
+                .orElseThrow(() -> new EntityNotFoundException(CommonConstants.VARIANT_NOT_FOUND + sku));
         return toResponse(variant);
     }
 
@@ -145,7 +167,7 @@ public class VariantServiceImpl implements VariantService {
     @Override
     public VariantResponse updateStockById(Long id, Long adjustStock) {
         Variant variant = variantRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Variant not found: " + id));
+                .orElseThrow(() -> new EntityNotFoundException(CommonConstants.VARIANT_NOT_FOUND + id));
         long newStock = variant.getStock() + adjustStock;
         if (newStock < 0) {
             throw new NotEnoughStockException("Operation would make stock negative for SKU: " + id);
@@ -159,7 +181,7 @@ public class VariantServiceImpl implements VariantService {
     @Override
     public VariantResponse updateStockBySku(String sku, Long adjustStock) {
         Variant variant = variantRepository.findBySku(sku)
-                .orElseThrow(() -> new EntityNotFoundException("Variant not found: " + sku));
+                .orElseThrow(() -> new EntityNotFoundException(CommonConstants.VARIANT_NOT_FOUND + sku));
         long newStock = variant.getStock() + adjustStock;
         if (newStock < 0) {
             throw new NotEnoughStockException("Operation would make stock negative for SKU: " + sku);
@@ -172,7 +194,7 @@ public class VariantServiceImpl implements VariantService {
     @Override
     public VariantResponse getVariantBySku(String sku) {
         Variant v = variantRepository.findBySku(sku)
-                .orElseThrow(() -> new EntityNotFoundException("Variant not found: " + sku));
+                .orElseThrow(() -> new EntityNotFoundException(CommonConstants.VARIANT_NOT_FOUND + sku));
         return toResponse(v);
     }
 
@@ -185,7 +207,7 @@ public class VariantServiceImpl implements VariantService {
 
         for (var item : items) {
             Variant variant = variantRepository.findBySku(item.getSku())
-                    .orElseThrow(() -> new EntityNotFoundException("Variant not found: " + item.getSku()));
+                    .orElseThrow(() -> new EntityNotFoundException(CommonConstants.VARIANT_NOT_FOUND + item.getSku()));
             if (variant.getStock() < item.getQuantity()) {
                 throw new NotEnoughStockException("Not enough stock for SKU: " + item.getSku());
             }
@@ -218,5 +240,25 @@ public class VariantServiceImpl implements VariantService {
         response.setStock(variant.getStock());
         response.setItemId(variant.getItem() != null ? variant.getItem().getId() : null);
         return response;
+    }
+
+    @Override
+    public List<StockResponse> getAllStock() {
+        List<Variant> variants = variantRepository.findAll();
+
+        if (variants.isEmpty()) {
+            throw new EntityNotFoundException("No variants found");
+        }
+
+        return variants.stream()
+                .map(v -> new StockResponse(
+                        v.getId(),
+                        v.getSku(),
+                        v.getName(),
+                        v.getStock(),
+                        v.getItem().getId(),
+                        v.getItem().getName()
+                ))
+                .collect(Collectors.toList());
     }
 }

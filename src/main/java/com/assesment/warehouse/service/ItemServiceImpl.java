@@ -1,7 +1,9 @@
 package com.assesment.warehouse.service;
 
+import com.assesment.warehouse.model.request.VariantRequest;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.assesment.warehouse.model.entity.Item;
@@ -11,8 +13,11 @@ import com.assesment.warehouse.model.response.ItemResponse;
 import com.assesment.warehouse.model.response.VariantResponse;
 import com.assesment.warehouse.repository.ItemRepository;
 import com.assesment.warehouse.repository.VariantRepository;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,21 +28,45 @@ public class ItemServiceImpl implements ItemService {
     private final VariantRepository variantRepository;
 
     @Override
+    @Transactional
     public ItemResponse createItem(ItemRequest request) {
+        if (itemRepository.existsByNameIgnoreCase(request.getName())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Item with name '" + request.getName() + "' already exists");
+        }
+
         Item item = new Item();
         item.setName(request.getName());
         item.setDescription(request.getDescription());
 
-        List<Variant> variants = request.getVariants().stream()
-                .map(vr -> {
-                    Variant variant = new Variant();
-                    variant.setSku(vr.getSku());
-                    variant.setName(vr.getName());
-                    variant.setPrice(java.math.BigDecimal.valueOf(vr.getPrice()));
-                    variant.setStock(vr.getStock().longValue());
-                    variant.setItem(item);
-                    return variant;
-                }).collect(Collectors.toList());
+        List<Variant> variants = new ArrayList<>();
+
+        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+            for (VariantRequest variantRequest : request.getVariants()) {
+                if (variantRepository.existsBySkuIgnoreCase(variantRequest.getSku())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Variant with SKU '" + variantRequest.getSku() + "' already exists");
+                }
+
+                if (variantRequest.getPrice() == null || variantRequest.getPrice() <= 0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Price must be greater than 0 for variant '" + variantRequest.getSku() + "'");
+                }
+
+                if (variantRequest.getStock() == null || variantRequest.getStock() < 0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Stock cannot be negative for variant '" + variantRequest.getSku() + "'");
+                }
+
+                Variant variant = new Variant();
+                variant.setSku(variantRequest.getSku());
+                variant.setName(variantRequest.getName());
+                variant.setPrice(BigDecimal.valueOf(variantRequest.getPrice()));
+                variant.setStock(variantRequest.getStock().longValue());
+                variant.setItem(item);
+                variants.add(variant);
+            }
+        }
 
         item.setVariants(variants);
         Item saved = itemRepository.save(item);
@@ -53,10 +82,12 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public List<ItemResponse> getAllItems() {
-        return itemRepository.findAll()
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        List<ItemResponse> list = new ArrayList<>();
+        for (Item item : itemRepository.findAll()) {
+            ItemResponse itemResponse = mapToResponse(item);
+            list.add(itemResponse);
+        }
+        return list;
     }
 
     @Override
@@ -68,16 +99,16 @@ public class ItemServiceImpl implements ItemService {
         item.setDescription(request.getDescription());
 
         variantRepository.deleteAll(item.getVariants());
-        List<Variant> variants = request.getVariants().stream()
-                .map(vr -> {
-                    Variant variant = new Variant();
-                    variant.setSku(vr.getSku());
-                    variant.setName(vr.getName());
-                    variant.setPrice(java.math.BigDecimal.valueOf(vr.getPrice()));
-                    variant.setStock(vr.getStock().longValue());
-                    variant.setItem(item);
-                    return variant;
-                }).collect(Collectors.toList());
+        List<Variant> variants = new ArrayList<>();
+        for (VariantRequest variantRequest : request.getVariants()) {
+            Variant variant = new Variant();
+            variant.setSku(variantRequest.getSku());
+            variant.setName(variantRequest.getName());
+            variant.setPrice(BigDecimal.valueOf(variantRequest.getPrice()));
+            variant.setStock(variantRequest.getStock().longValue());
+            variant.setItem(item);
+            variants.add(variant);
+        }
 
         item.setVariants(variants);
         Item updated = itemRepository.save(item);
@@ -99,16 +130,17 @@ public class ItemServiceImpl implements ItemService {
         response.setDescription(item.getDescription());
 
         if (item.getVariants() != null) {
-            List<VariantResponse> variantResponses = item.getVariants().stream().map(v -> {
+            List<VariantResponse> variantResponses = new ArrayList<>();
+            for (Variant variant : item.getVariants()) {
                 VariantResponse vr = new VariantResponse();
-                vr.setId(v.getId());
-                vr.setSku(v.getSku());
-                vr.setName(v.getName());
-                vr.setPrice(v.getPrice());
-                vr.setStock(v.getStock());
-                vr.setItemId(v.getItem().getId());
-                return vr;
-            }).collect(Collectors.toList());
+                vr.setId(variant.getId());
+                vr.setSku(variant.getSku());
+                vr.setName(variant.getName());
+                vr.setPrice(variant.getPrice());
+                vr.setStock(variant.getStock());
+                vr.setItemId(variant.getItem().getId());
+                variantResponses.add(vr);
+            }
             response.setVariants(variantResponses);
         }
         return response;

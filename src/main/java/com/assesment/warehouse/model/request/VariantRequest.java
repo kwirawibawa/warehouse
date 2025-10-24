@@ -6,7 +6,6 @@ import lombok.Data;
 
 @Data
 public class VariantRequest {
-    @NotNull
     private Long id;
 
     @NotNull

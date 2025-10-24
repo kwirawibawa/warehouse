@@ -5,11 +5,12 @@ import com.assesment.warehouse.model.request.SellMultipleRequest;
 import com.assesment.warehouse.model.request.SellRequest;
 import com.assesment.warehouse.model.request.VariantRequest;
 import com.assesment.warehouse.model.response.SellResultResponse;
+import com.assesment.warehouse.model.response.StockResponse;
 import com.assesment.warehouse.model.response.VariantResponse;
 import java.util.List;
 
 public interface VariantService {
-    VariantResponse createVariant(Long itemId, VariantRequest request);
+    VariantResponse createVariant(VariantRequest request);
     List<VariantResponse> getAllVariants();
     VariantResponse getVariantById(Long id);
     VariantResponse updateVariant(Long id, VariantRequest request);
@@ -22,4 +23,5 @@ public interface VariantService {
     VariantResponse updateStockBySku(String sku, Long adjustStock);
     VariantResponse getVariantBySku(String sku);
     List<SellResultResponse> reduceStockBulk(SellMultipleRequest request);
+    List<StockResponse> getAllStock();
 }

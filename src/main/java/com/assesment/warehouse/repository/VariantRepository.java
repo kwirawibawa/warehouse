@@ -6,4 +6,5 @@ import java.util.Optional;
 
 public interface VariantRepository extends JpaRepository<Variant, Long> {
     Optional<Variant> findBySku(String sku);
+    boolean existsBySkuIgnoreCase(String sku);
 }
