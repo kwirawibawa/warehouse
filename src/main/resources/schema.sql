@@ -1,0 +1,19 @@
+DROP TABLE IF EXISTS variant;
+DROP TABLE IF EXISTS item;
+
+CREATE TABLE item (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description VARCHAR(500)
+);
+
+CREATE TABLE variant (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    sku VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255),
+    price DECIMAL(15,2) NOT NULL,
+    stock BIGINT NOT NULL,
+    version BIGINT,
+    item_id BIGINT,
+    CONSTRAINT fk_item FOREIGN KEY (item_id) REFERENCES item(id)
+);
